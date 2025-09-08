@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import com.example.fairoptionvalue.models.BlackScholes;
 
 import com.example.fairoptionvalue.models.StockResponse;
 
@@ -33,6 +34,7 @@ public class OptionsController {
 
     @GetMapping("/options/rates")
     public double GetCurrentTenYearRate() {
+
         OptionsService OS = new OptionsService();
         try {
             //convert rate to a percentage div by 100

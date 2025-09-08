@@ -138,20 +138,21 @@ public class OptionsService {
     public double BlackScholesCalculation(OptionType optionType, double stockPrice, double strikePrice, double rfr, double timeToExp,
                                           double dTE, double meanClose, double standardDev) {
 
+        double d1 = (Math.log(stockPrice / strikePrice) + (rfr + Math.pow(standardDev, 2) / 2) * timeToExp) / standardDev * Math.sqrt(timeToExp);
+        double d2 = d1 - standardDev * Math.sqrt(timeToExp);
+
         if (optionType == OptionType.CALL) {
-            double d1 = (Math.log(stockPrice / strikePrice) + (rfr + Math.pow(standardDev, 2) / 2) * timeToExp) / standardDev * Math.sqrt(timeToExp);
-            double d2 = d1 - standardDev * Math.sqrt(timeToExp);
 
             double CallValue = stockPrice * GetNormalDistribution(meanClose, standardDev, d1) - strikePrice *
                     Math.pow(Math.E, -rfr * timeToExp) * GetNormalDistribution(meanClose, standardDev, d2);
+            return CallValue;
+        }
 
+        
+        if (optionType == OptionType.PUT) {
             double PutValue = strikePrice * Math.pow(Math.E, -rfr * timeToExp) * GetNormalDistribution(meanClose, standardDev, -d2)
                     - stockPrice * GetNormalDistribution(meanClose, standardDev, -d1);
-
-
-        }
-        if (optionType == OptionType.PUT) {
-
+            return PutValue;
         }
 
         return 0;
