@@ -1,13 +1,16 @@
 package com.example.fairoptionvalue.service;
 
 import com.example.fairoptionvalue.enums.OptionType;
+import com.example.fairoptionvalue.enums.TotalOptionType;
 import com.example.fairoptionvalue.models.FedRateData;
 import com.example.fairoptionvalue.models.HistoricalDataRequest;
 import com.example.fairoptionvalue.models.StockResponse;
+import com.example.fairoptionvalue.models.VolStats;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -15,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.math3.distribution.NormalDistribution;
@@ -53,7 +57,7 @@ public class OptionsService {
     }
 
 
-    public double GetVolatility() {
+    public VolStats GetVolatility(String ticker) {
 
         StockResponse stockTickerResponse = createSpyStubFull();
         List<StockResponse.Result> responses = new ArrayList<>();
@@ -81,14 +85,16 @@ public class OptionsService {
         for (double num : dailyVol) {
             standardDev += Math.pow(num - meanClose, 2);
         }
+        double volatility = Math.sqrt(standardDev / lengthClose);
+        VolStats volStats = new VolStats();
+        volStats.setVolatility(volatility);
+        volStats.setMeanClose(meanClose);
+        volStats.setLengthClose(lengthClose);
+        volStats.setSumClose(sumClose);
 
-        return Math.sqrt(standardDev / lengthClose);
+        return volStats;
     }
 
-    public double GetNormalDistribution(double meanClose, double standardDeviation, double Zscore) {
-        NormalDistribution normal = new NormalDistribution(meanClose, standardDeviation);
-        return normal.cumulativeProbability(Zscore);
-    }
 
 
     public double GetCurrentStockPrice() {
@@ -136,27 +142,109 @@ public class OptionsService {
     }
 
     public double BlackScholesCalculation(OptionType optionType, double stockPrice, double strikePrice, double rfr, double timeToExp,
-                                          double dTE, double meanClose, double standardDev) {
+                                          double standardDev) {
+        double timeToExpiry = TimeToExpiration(timeToExp);
+        System.out.println("TimeToExpiry: " + timeToExpiry);
+        System.out.println("StandardDeviation: " + standardDev);
 
-        double d1 = (Math.log(stockPrice / strikePrice) + (rfr + Math.pow(standardDev, 2) / 2) * timeToExp) / standardDev * Math.sqrt(timeToExp);
-        double d2 = d1 - standardDev * Math.sqrt(timeToExp);
+        double d1 = (Math.log(stockPrice / strikePrice) + (rfr + Math.pow(standardDev, 2) / 2) * timeToExpiry) / standardDev * Math.sqrt(timeToExpiry);
+
+        System.out.println("Stock/Strike: " + Math.log(stockPrice/strikePrice));
+        System.out.println("(rfr * SD^2)*YRS " + (rfr +Math.pow(standardDev, 2) / 2) * timeToExpiry);
+
+
+        double d2 = d1 - standardDev * Math.sqrt(timeToExpiry);
+        System.out.println("d1 = " + d1);
+        System.out.println("d2 = " + d2);
+
+        NormalDistribution normal = new NormalDistribution();
+        double nd1 =normal.cumulativeProbability(d1);
+        double nd2 = normal.cumulativeProbability(d2);
+        System.out.println("normal = " + nd1);
+        System.out.println("normal = " + nd2);
 
         if (optionType == OptionType.CALL) {
 
-            double CallValue = stockPrice * GetNormalDistribution(meanClose, standardDev, d1) - strikePrice *
-                    Math.pow(Math.E, -rfr * timeToExp) * GetNormalDistribution(meanClose, standardDev, d2);
+            double CallValue = stockPrice * nd1 - strikePrice *
+                    Math.pow(Math.E, -rfr * timeToExpiry) * nd2;
+
+                    System.out.println("CallValue = " + CallValue);
             return CallValue;
         }
 
         
         if (optionType == OptionType.PUT) {
-            double PutValue = strikePrice * Math.pow(Math.E, -rfr * timeToExp) * GetNormalDistribution(meanClose, standardDev, -d2)
-                    - stockPrice * GetNormalDistribution(meanClose, standardDev, -d1);
+            double PutValue = strikePrice * Math.pow(Math.E, -rfr * timeToExpiry) * normal.cumulativeProbability(-d2)
+                    - stockPrice * normal.cumulativeProbability(-d1);
+
+            System.out.println("PutValue = " + PutValue);
             return PutValue;
         }
 
         return 0;
     }
 
+    public double Rounding(double value)
+    {
+        double num = Math.round(value * 100000);
+        return num/100000;
+    }
+
+    public double CCRBinomial(double stockPrice, double strikePrice, double rfr, double contDividendYield , double timeToExpiry,
+                              double volatility, int steps, TotalOptionType totalOptionType) {
+
+        if(steps==0) throw new  IllegalArgumentException("steps cannot be 0");
+
+        double deltaT = timeToExpiry / steps;
+
+        double upSize = Math.exp(volatility * Math.sqrt(deltaT));
+
+        double downSize = 1/upSize;
+
+        double disc = Math.exp(-rfr * deltaT);
+
+        double drift = Math.exp((rfr-contDividendYield) * deltaT);
+
+        double probability = (drift-downSize) / (upSize - downSize);
+
+
+
+        System.out.println("deltaT = " + deltaT);
+        System.out.println("upSize = " + upSize);
+        System.out.println("downSize = " + downSize);
+        System.out.println("disc = " + disc);
+        System.out.println("drift = " + drift);
+        System.out.println("probability = " + probability);
+
+        double[] optionPrices = new double[steps + 1];
+
+        double stockP = stockPrice * Math.pow(downSize, steps);
+        for(int i=0; i<=steps; i++) {
+            double payoff = intrinsic(totalOptionType.getOptionType(), stockP, strikePrice);
+            optionPrices[i] = payoff;
+            stockP *= (upSize/downSize);
+        }
+
+        for(int i=steps - 1; i>=0; i--) {
+            stockP = stockPrice * Math.pow(downSize, i);
+            for(int j=0; j<=i; j++) {
+                double continuation = disc * (probability * optionPrices[j+1] + (1-probability) * optionPrices[j]);
+                if(totalOptionType.getMarketplace().equals(TotalOptionType.Market.American)){
+                    double exercise = intrinsic(totalOptionType.getOptionType(), stockP, strikePrice);
+                    optionPrices[j] = Math.max(continuation, exercise);
+                } else{
+                    optionPrices[j] = continuation;
+                }
+                stockP *= (upSize/downSize);
+            }
+        }
+
+        System.out.println("optionPrices = " + optionPrices[0]);
+       return optionPrices[0];
+    }
+
+    private static double intrinsic(OptionType option, double stockP, double strikePrice) {
+        return option == OptionType.CALL ? Math.max(0.0, stockP - strikePrice) : Math.max(0.0, strikePrice - stockP);
+    }
 
 }
