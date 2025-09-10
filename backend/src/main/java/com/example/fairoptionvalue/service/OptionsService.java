@@ -1,16 +1,13 @@
 package com.example.fairoptionvalue.service;
-
 import com.example.fairoptionvalue.enums.OptionType;
 import com.example.fairoptionvalue.enums.TotalOptionType;
-import com.example.fairoptionvalue.models.FedRateData;
-import com.example.fairoptionvalue.models.HistoricalDataRequest;
-import com.example.fairoptionvalue.models.StockResponse;
-import com.example.fairoptionvalue.models.VolStats;
+import com.example.fairoptionvalue.models.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.math3.stat.regression.OLSMultipleLinearRegression;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
+import org.apache.commons.math3.linear.*;
+import java.util.*;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,11 +15,9 @@ import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-
+import java.util.Random;
 import org.apache.commons.math3.distribution.NormalDistribution;
-
 import static com.example.fairoptionvalue.service.StubData.createSpyStubFull;
 
 @Service
@@ -140,35 +135,26 @@ public class OptionsService {
         return daysToExpiration / year;
 
     }
+    //Black-Scholes-Merton (BSM) model used to factor for dividends
 
     public double BlackScholesCalculation(OptionType optionType, double stockPrice, double strikePrice, double rfr, double timeToExp,
-                                          double standardDev) {
+                                          double standardDev, double contDividendYield) {
         double timeToExpiry = TimeToExpiration(timeToExp);
-        System.out.println("TimeToExpiry: " + timeToExpiry);
-        System.out.println("StandardDeviation: " + standardDev);
 
-        double d1 = (Math.log(stockPrice / strikePrice) + (rfr + Math.pow(standardDev, 2) / 2) * timeToExpiry) / standardDev * Math.sqrt(timeToExpiry);
-
-        System.out.println("Stock/Strike: " + Math.log(stockPrice/strikePrice));
-        System.out.println("(rfr * SD^2)*YRS " + (rfr +Math.pow(standardDev, 2) / 2) * timeToExpiry);
-
+        double d1 = (Math.log(stockPrice / strikePrice) + (rfr - contDividendYield + Math.pow(standardDev, 2) / 2) * timeToExpiry) / standardDev * Math.sqrt(timeToExpiry);
 
         double d2 = d1 - standardDev * Math.sqrt(timeToExpiry);
-        System.out.println("d1 = " + d1);
-        System.out.println("d2 = " + d2);
 
         NormalDistribution normal = new NormalDistribution();
         double nd1 =normal.cumulativeProbability(d1);
         double nd2 = normal.cumulativeProbability(d2);
-        System.out.println("normal = " + nd1);
-        System.out.println("normal = " + nd2);
 
         if (optionType == OptionType.CALL) {
 
             double CallValue = stockPrice * nd1 - strikePrice *
                     Math.pow(Math.E, -rfr * timeToExpiry) * nd2;
 
-                    System.out.println("CallValue = " + CallValue);
+                    System.out.println("BS CALL Value:  " + CallValue);
             return CallValue;
         }
 
@@ -177,23 +163,19 @@ public class OptionsService {
             double PutValue = strikePrice * Math.pow(Math.E, -rfr * timeToExpiry) * normal.cumulativeProbability(-d2)
                     - stockPrice * normal.cumulativeProbability(-d1);
 
-            System.out.println("PutValue = " + PutValue);
+            System.out.println("BS PUT VALUE: " + PutValue);
             return PutValue;
         }
 
         return 0;
     }
 
-    public double Rounding(double value)
-    {
-        double num = Math.round(value * 100000);
-        return num/100000;
-    }
-
     public double CCRBinomial(double stockPrice, double strikePrice, double rfr, double contDividendYield , double timeToExpiry,
                               double volatility, int steps, TotalOptionType totalOptionType) {
 
         if(steps==0) throw new  IllegalArgumentException("steps cannot be 0");
+
+        timeToExpiry = TimeToExpiration(timeToExpiry);
 
         double deltaT = timeToExpiry / steps;
 
@@ -206,15 +188,6 @@ public class OptionsService {
         double drift = Math.exp((rfr-contDividendYield) * deltaT);
 
         double probability = (drift-downSize) / (upSize - downSize);
-
-
-
-        System.out.println("deltaT = " + deltaT);
-        System.out.println("upSize = " + upSize);
-        System.out.println("downSize = " + downSize);
-        System.out.println("disc = " + disc);
-        System.out.println("drift = " + drift);
-        System.out.println("probability = " + probability);
 
         double[] optionPrices = new double[steps + 1];
 
@@ -239,12 +212,32 @@ public class OptionsService {
             }
         }
 
-        System.out.println("optionPrices = " + optionPrices[0]);
+        System.out.println("Binomial option Price: " + optionPrices[0]);
        return optionPrices[0];
     }
 
     private static double intrinsic(OptionType option, double stockP, double strikePrice) {
         return option == OptionType.CALL ? Math.max(0.0, stockP - strikePrice) : Math.max(0.0, strikePrice - stockP);
+    }
+
+
+    public ArrayList<Double> GetFairValue(double stockPrice, double strikePrice, double rfr, double contDividendYield , double timeToExpiry,
+                               double volatility, int steps, TotalOptionType totalOptionType){
+
+        Binomial binomial = new Binomial(stockPrice,strikePrice,rfr,contDividendYield,timeToExpiry,volatility, steps, totalOptionType);
+        BlackScholes blackScholes = new BlackScholes(stockPrice,strikePrice,rfr,timeToExpiry,volatility, totalOptionType, contDividendYield);
+
+        binomial.start();
+        blackScholes.start();
+
+        double CCRValue = binomial.getCCRVal();
+        double blackScholesValue = blackScholes.getBlackScholesValue();
+
+        ArrayList<Double> optionPrices = new ArrayList<>();
+        optionPrices.add(CCRValue);
+        optionPrices.add(blackScholesValue);
+
+        return optionPrices;
     }
 
 }

@@ -14,6 +14,8 @@ import com.example.fairoptionvalue.models.BlackScholes;
 
 import com.example.fairoptionvalue.models.StockResponse;
 
+import java.util.ArrayList;
+
 @RestController
 public class OptionsController {
 
@@ -46,9 +48,9 @@ public class OptionsController {
         OptionsService OS = new OptionsService();
         //verified the math is functioning correctly
         //This data will actually be pulled from a selected option instead of prompting the user for this information.
-        double value = OS.BlackScholesCalculation(OptionType.CALL, 235.84, 235, .0405, 4, .2586);
-        double value2 = OS.BlackScholesCalculation(OptionType.PUT, 235.84, 235, .0405, 4, .2586);
-        return value;
+        //double value = OS.BlackScholesCalculation(OptionType.CALL, 235.84, 235, .0405, 4, .2586);
+        //double value2 = OS.BlackScholesCalculation(OptionType.PUT, 235.84, 235, .0405, 4, .2586);
+        return 0;
     }
     @GetMapping("/options/binomial")
     public double CalcBinomial() {
@@ -75,5 +77,14 @@ public class OptionsController {
             e.printStackTrace();
             return 0;
         }
+    }
+
+    @GetMapping("options/fair")
+    public void CalcFair() {
+        OptionsService OS = new OptionsService();
+        TotalOptionType totalOptionType = new TotalOptionType();
+        totalOptionType.setOptionType(OptionType.CALL);
+        totalOptionType.setMarketplace(TotalOptionType.Market.American);
+       ArrayList<Double> fairValues = OS.GetFairValue(65,60,.05,0,180,0.20,1000,totalOptionType);
     }
 }
