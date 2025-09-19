@@ -7,7 +7,7 @@ public class Binomial extends Thread {
     private double stockPrice, strikePrice, rfr, contDividendYield, timeToExpiry, volatility;
     private int steps;
     private TotalOptionType totalOptionType;
-    private double CCRVal;
+    private volatile double CCRVal;
 
 
     public Binomial(double stockPrice,double strikePrice,double rfr,double contDividendYield,double timeToExpiry,double volatility, int steps, TotalOptionType totalOptionType) {

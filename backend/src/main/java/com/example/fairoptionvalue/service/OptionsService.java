@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.math3.stat.regression.OLSMultipleLinearRegression;
 import org.springframework.stereotype.Service;
 import org.apache.commons.math3.linear.*;
+
+import java.math.BigDecimal;
 import java.util.*;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -51,44 +53,45 @@ public class OptionsService {
         return null;
     }
 
-
-    public VolStats GetVolatility(String ticker) {
-
-        StockResponse stockTickerResponse = createSpyStubFull();
-        List<StockResponse.Result> responses = new ArrayList<>();
-        responses = stockTickerResponse.getResults();
-
-        //We need the Sum, Length, and mean to calculate SD
-        double sumClose = 0;
-        double lengthClose = responses.size();
-        double meanClose = 0;
-
-        List<Double> dailyVol = new ArrayList<>();
-
-
-        for (int i = 1; i < responses.size(); i++) {
-            double previousClose = responses.get(i - 1).getC();
-            double currentClose = responses.get(i).getC();
-            double ratioClose = currentClose / previousClose;
-            dailyVol.add(Math.log(ratioClose));
-            sumClose += ratioClose;
-        }
-        meanClose = sumClose / lengthClose;
-
-        //calculate SD
-        double standardDev = 0;
-        for (double num : dailyVol) {
-            standardDev += Math.pow(num - meanClose, 2);
-        }
-        double volatility = Math.sqrt(standardDev / lengthClose);
-        VolStats volStats = new VolStats();
-        volStats.setVolatility(volatility);
-        volStats.setMeanClose(meanClose);
-        volStats.setLengthClose(lengthClose);
-        volStats.setSumClose(sumClose);
-
-        return volStats;
-    }
+//instead of using HV I am opting to use IV due to it being more dialed in with what is going on in
+    //the market currently.
+//    public VolStats GetVolatility(String ticker) {
+//
+//        StockResponse stockTickerResponse = createSpyStubFull();
+//        List<StockResponse.Result> responses = new ArrayList<>();
+//        responses = stockTickerResponse.getResults();
+//
+//        //We need the Sum, Length, and mean to calculate SD
+//        double sumClose = 0;
+//        double lengthClose = responses.size();
+//        double meanClose = 0;
+//
+//        List<Double> dailyVol = new ArrayList<>();
+//
+//
+//        for (int i = 1; i < responses.size(); i++) {
+//            double previousClose = responses.get(i - 1).getC();
+//            double currentClose = responses.get(i).getC();
+//            double ratioClose = currentClose / previousClose;
+//            dailyVol.add(Math.log(ratioClose));
+//            sumClose += ratioClose;
+//        }
+//        meanClose = sumClose / lengthClose;
+//
+//        //calculate SD
+//        double standardDev = 0;
+//        for (double num : dailyVol) {
+//            standardDev += Math.pow(num - meanClose, 2);
+//        }
+//        double volatility = Math.sqrt(standardDev / lengthClose);
+//        VolStats volStats = new VolStats();
+//        volStats.setVolatility(volatility);
+//        volStats.setMeanClose(meanClose);
+//        volStats.setLengthClose(lengthClose);
+//        volStats.setSumClose(sumClose);
+//
+//        return volStats;
+//    }
 
 
 
@@ -153,8 +156,6 @@ public class OptionsService {
 
             double CallValue = stockPrice * nd1 - strikePrice *
                     Math.pow(Math.E, -rfr * timeToExpiry) * nd2;
-
-                    System.out.println("BS CALL Value:  " + CallValue);
             return CallValue;
         }
 
@@ -162,8 +163,6 @@ public class OptionsService {
         if (optionType == OptionType.PUT) {
             double PutValue = strikePrice * Math.pow(Math.E, -rfr * timeToExpiry) * normal.cumulativeProbability(-d2)
                     - stockPrice * normal.cumulativeProbability(-d1);
-
-            System.out.println("BS PUT VALUE: " + PutValue);
             return PutValue;
         }
 
@@ -211,8 +210,6 @@ public class OptionsService {
                 stockP *= (upSize/downSize);
             }
         }
-
-        System.out.println("Binomial option Price: " + optionPrices[0]);
        return optionPrices[0];
     }
 
@@ -220,18 +217,33 @@ public class OptionsService {
         return option == OptionType.CALL ? Math.max(0.0, stockP - strikePrice) : Math.max(0.0, strikePrice - stockP);
     }
 
+    public double ToDecimal(double value){
+
+        value = Math.round(value * 10000.0) / 10000.0;
+        return value;
+    }
 
     public ArrayList<Double> GetFairValue(double stockPrice, double strikePrice, double rfr, double contDividendYield , double timeToExpiry,
-                               double volatility, int steps, TotalOptionType totalOptionType){
+                               double volatility, int steps, TotalOptionType totalOptionType) {
 
         Binomial binomial = new Binomial(stockPrice,strikePrice,rfr,contDividendYield,timeToExpiry,volatility, steps, totalOptionType);
         BlackScholes blackScholes = new BlackScholes(stockPrice,strikePrice,rfr,timeToExpiry,volatility, totalOptionType, contDividendYield);
 
         binomial.start();
         blackScholes.start();
+        try {
+            binomial.join();
+            blackScholes.join();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
 
         double CCRValue = binomial.getCCRVal();
+        CCRValue = ToDecimal(CCRValue);
+
         double blackScholesValue = blackScholes.getBlackScholesValue();
+        blackScholesValue = ToDecimal(blackScholesValue);
 
         ArrayList<Double> optionPrices = new ArrayList<>();
         optionPrices.add(CCRValue);

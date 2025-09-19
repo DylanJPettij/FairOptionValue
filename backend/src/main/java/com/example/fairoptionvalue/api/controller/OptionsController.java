@@ -15,6 +15,7 @@ import com.example.fairoptionvalue.models.BlackScholes;
 import com.example.fairoptionvalue.models.StockResponse;
 
 import java.util.ArrayList;
+import java.util.Optional;
 
 @RestController
 public class OptionsController {
@@ -26,21 +27,21 @@ public class OptionsController {
         this.optionsService = optionsService;
     }
 
-    @PostMapping("/options/fv")
-    public double PostFairOptionValue(@RequestBody HistoricalDataRequest historicalDataRequest, String option) {
-
-        OptionsService OS = new OptionsService();
-
-        //Solve for the Standard Deviation of returns
-        VolStats volStats = OS.GetVolatility(historicalDataRequest.getStockTicker());
-
-        //get the current risk-free rate
-        double rfr = OS.GetCurrentRates();
-
-        StockResponse historicalData = OS.GetHistoricalStockData(historicalDataRequest);
-
-        return 0;
-    }
+//    @PostMapping("/options/fv")
+//    public double PostFairOptionValue(@RequestBody HistoricalDataRequest historicalDataRequest, String option) {
+//
+//        OptionsService OS = new OptionsService();
+//
+//        //Solve for the Standard Deviation of returns
+//        VolStats volStats = OS.GetVolatility(historicalDataRequest.getStockTicker());
+//
+//        //get the current risk-free rate
+//        double rfr = OS.GetCurrentRates();
+//
+//        StockResponse historicalData = OS.GetHistoricalStockData(historicalDataRequest);
+//
+//        return 0;
+//    }
 
 
     @GetMapping("/options/black")
@@ -80,11 +81,12 @@ public class OptionsController {
     }
 
     @GetMapping("options/fair")
-    public void CalcFair() {
+    public Optional<ArrayList<Double>> CalcFair() {
         OptionsService OS = new OptionsService();
         TotalOptionType totalOptionType = new TotalOptionType();
-        totalOptionType.setOptionType(OptionType.CALL);
+        totalOptionType.setOptionType(OptionType.PUT);
         totalOptionType.setMarketplace(TotalOptionType.Market.American);
-       ArrayList<Double> fairValues = OS.GetFairValue(65,60,.05,0,180,0.20,1000,totalOptionType);
+       ArrayList<Double> fairValues = OS.GetFairValue(237.18,237.50,.04086,0,2,.2642,1000,totalOptionType);
+       return Optional.ofNullable(fairValues);
     }
 }
