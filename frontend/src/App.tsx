@@ -1,29 +1,32 @@
-import Navbar from "./components/Navbar/Navbar";
-
-import { TextColorClass } from "./components/Methods/TextColorClass";
-import WatchList from "./components/WatchList/WatchList";
 import OptionsChainTable from "./components/OptionsChain/OptionsChainTable";
+import { useEffect } from "react";
+import { OptionDataWS } from "./components/PolygonAI/OptionDataWS";
+import { useRef } from "react";
+import { GetStockData } from "./components/PolygonAI/StockDataWS";
+
 const App = () => {
+  const wsOptions = OptionDataWS();
+  const optionRef = useRef(wsOptions);
+
+  const wsStocks = GetStockData();
+  const stockRef = useRef(wsStocks);
+
+  useEffect(() => {
+    return () => {
+      wsOptions.close();
+      wsStocks.close();
+    };
+  }, []);
+
   return (
     <>
       <div className="flex gap-5">
         {/* <WatchList /> */}
-        <OptionsChainTable />
+        <OptionsChainTable
+          optionRef={optionRef.current}
+          stockRef={stockRef.current}
+        />
       </div>
-      {/* <div className="bg-white rounded p-4 font-bold shadow-xl">
-          Data goes here: {`$` + stockData.toFixed(2)}
-          <div className={TextColorClass(lastPrice?.currentPriceDiff)}>
-            {stockData == null || stockData == lastPrice.currentPriceDiff
-              ? "0.00"
-              : lastPrice?.currentPriceDiff.toFixed(2)}
-          </div>
-        </div>
-        <button
-          className="text-white bg-black font-bold text-xl p-3 rounded shadow-xl hover:text-blue-300"
-          onClick={handleClick}
-        >
-          Click me to start streaming data
-        </button> */}
     </>
   );
 };

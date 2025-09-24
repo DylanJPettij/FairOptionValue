@@ -1,7 +1,7 @@
 import { websocketClient } from "@polygon.io/client-js";
 import type { StockPricingInfo } from "../Models/StockPricingInfo";
 
-export const GetStockData = async (SetStockData: any, stockTicker: String) => {
+export const GetStockData = () => {
   // create a websocket client using the polygon client-js library
   const ws = websocketClient(
     "rdgLSNEX93x_QBCIcfiA33KTQmPdomvL",
@@ -25,18 +25,33 @@ export const GetStockData = async (SetStockData: any, stockTicker: String) => {
       parsedMessage[0].ev === "status" &&
       parsedMessage[0].status === "auth_success"
     ) {
-      console.log(
-        `Subscribing to the minute aggregates channel for ticker ${stockTicker}`
-      );
+    }
+  };
+  return {
+    getStockPrice: (SetStockData: any, stockTicker: String) => {
       ws.send(
         JSON.stringify({ action: "subscribe", params: `"A.${stockTicker}"` })
       );
-      // ws.send(JSON.stringify({"action":"subscribe", "params":"AM.*"})); // all tickers
-      // ws.send(JSON.stringify({"action":"subscribe", "params":"AM.AAPL"})); // single ticker
-      // ws.send(JSON.stringify({"action":"subscribe", "params":"AM.AAPL,AM.MSFT"})); // multiple tickers
-    }
-    if (parsedMessage[0].c !== undefined) {
-      SetStockData(parsedMessage[0].c);
-    }
+      ws.onmessage = (msg: any) => {
+        // parse the data from the message
+        const parsedMessage = JSON.parse(msg.data);
+        // wait until the message saying authentication was successful, then subscribe to a channel
+        if (
+          parsedMessage[0].ev === "status" &&
+          parsedMessage[0].status === "auth_success"
+        ) {
+          console.log("Message received:", parsedMessage[0]);
+        }
+        if (parsedMessage[0].c !== undefined) {
+          SetStockData([parsedMessage[0].c]);
+        }
+      };
+    },
+    close: () => {
+      ws.close();
+    },
+    unsubscribe: (stock: string) => {
+      ws.send(JSON.stringify({ action: "unsubscribe", params: `A.${stock}` }));
+    },
   };
 };
