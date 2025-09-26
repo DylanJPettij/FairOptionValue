@@ -19,15 +19,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 import { SelectItem } from "../ui/select";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import type { StockPricingInfo } from "../../components/Models/StockPricingInfo";
 import {
   getCurrentPrice,
   getOptionLastPrice,
   getStocksOpen,
 } from "../PolygonAI/TickerSummary";
-import { optionsResponse } from "./OptionsStubData";
 import type { Option } from "../Models/Option";
+import getOptions from "../PolygonAI/ListOptions";
 
 const OptionsChainTable = (props: any) => {
   const [selectedExpiration, setSelectedExpiration] = useState("");
@@ -39,7 +39,7 @@ const OptionsChainTable = (props: any) => {
   const [optionsChain, SetOptionsChain] = useState<Option[]>();
   const [stockData, SetStockData] = useState<number>(0);
   const [openingPrice, setOpeningPrice] = useState<number>(0);
-  const [currentStock, setCurrentStock] = useState<string>("");
+
   const [lastStock, setLastStock] = useState<string>("");
 
   const [lastPrice, SetLastPrice] = useState<StockPricingInfo>({
@@ -53,33 +53,67 @@ const OptionsChainTable = (props: any) => {
       currentPriceDiff: ((stockData - openingPrice) / openingPrice) * 100,
     });
   }, [stockData]);
+
+  const ChangeChain = async () => {
+    let options = await getOptions(
+      lastStock,
+      Math.round(stockData),
+      selectedExpiration
+    );
+    SetOptionsChain(options);
+  };
+
+  //having to call another function within the useEffect to use an async function
+  useEffect(() => {
+    if (selectedStock !== "") {
+      ChangeChain();
+    }
+  }, [selectedExpiration]);
+
   //
   const handleClick = async (stockTicker: string) => {
+    // if (stockTicker === lastStock) {
+    //   return;
+    // }
+    if (stockTicker === "") {
+      return;
+    }
     try {
-      getCurrentPrice(stockTicker).then((data) => SetStockData(data as number));
-      setCurrentStock(stockTicker);
+      let currentPrice;
+      await getCurrentPrice(stockTicker).then((data) => (currentPrice = data));
+      if (currentPrice === undefined) {
+        return;
+      }
+      SetStockData(currentPrice as number);
       props.stockRef.unsubscribe(lastStock);
       setLastStock(stockTicker);
       getStocksOpen(stockTicker).then((data) =>
         setOpeningPrice(data as number)
       );
+
+      //subscribe to the stock ticker for real-time updates
       props.stockRef.getStockPrice(SetStockData, stockTicker);
-      getOptionLastPrice("MARA", "AM.O:MARA251010P00015000");
-      //subscribe to option ticker updates
-      // props.ws.send(
-      //   JSON.stringify({
-      //     action: "subscribe",
-      //     params: "A.O:NVDA*",
-      //     //params: "AM.O:MARA251010P00015000",
-      //   })
-      // );
-      SetOptionsChain(optionsResponse.results);
+
+      let optionsChain = await getOptions(
+        stockTicker,
+        currentPrice,
+        selectedExpiration
+      );
+
+      if (optionsChain === undefined) {
+        optionsChain = [];
+      }
+
+      SetOptionsChain(optionsChain);
     } catch (error) {
       console.error("Error fetching stock data:", error);
     }
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (searchTerm.trim() === "") {
+      return;
+    }
     handleClick(searchTerm.toUpperCase());
     SetLastPrice({
       currentStockPrice: 0,
@@ -108,7 +142,6 @@ const OptionsChainTable = (props: any) => {
   };
   //default expiration dates for testing
   const ExpirationDates = [
-    "2025-09-26",
     "2025-10-03",
     "2025-10-10",
     "2025-10-17",
@@ -135,7 +168,7 @@ const OptionsChainTable = (props: any) => {
   const priceChangePercent =
     ((currentPrice - openingPrice) / openingPrice) * 100;
 
-  let filteredData = optionsResponse.results;
+  let filteredData = optionsChain ? [...optionsChain] : [];
 
   filteredData = filteredData
     .filter((option) => option.details.expiration_date === selectedExpiration)
@@ -198,6 +231,7 @@ const OptionsChainTable = (props: any) => {
                     name="search"
                     className="w-48"
                     value={searchTerm}
+                    disabled={selectedExpiration === ""}
                     onChange={handleInputChange}
                     maxLength={5}
                   />
@@ -238,8 +272,7 @@ const OptionsChainTable = (props: any) => {
                 <TableHeader>
                   <TableRow className="border-b bg-muted/30">
                     <TableHead className="text-left p-2">Strike</TableHead>
-                    <TableHead className="text-left p-2">Bid</TableHead>
-                    <TableHead className="text-left p-2">Ask</TableHead>
+                    <TableHead className="text-left p-2">Last</TableHead>
                     <TableHead className="text-left p-2">Volume</TableHead>
                     <TableHead className="text-left p-2">OI</TableHead>
                     <TableHead className="text-left p-2">IV</TableHead>
@@ -252,28 +285,25 @@ const OptionsChainTable = (props: any) => {
                       onClick={() => handleRowClick(option)}
                       className={`border-b cursor-pointer hover:border-orange-300 hover:shadow-[0_0_0_3px_theme('colors.orange.300')] hover:bg-blue-200 hover:outline-offset-2
                     transition-colors ${
-                      option.details.strike_price <= currentPrice
+                      option?.details?.strike_price <= currentPrice
                         ? "bg-chart-1/5"
                         : ""
                     }`}
                     >
                       <TableCell className="p-2 font-mono font-semibold">
-                        ${option.details.strike_price}
+                        ${option?.details?.strike_price}
                       </TableCell>
                       <TableCell className="p-2 font-mono font-semibold">
-                        ${option.day.low.toFixed(2)}
+                        ${option?.day?.low?.toFixed(2)}
                       </TableCell>
                       <TableCell className="p-2 font-mono font-semibold">
-                        ${option.day.low.toFixed(2)}
+                        {option?.day?.volume?.toLocaleString()}
                       </TableCell>
                       <TableCell className="p-2 font-mono font-semibold">
-                        {option.day.volume.toLocaleString()}
+                        {option?.open_interest?.toLocaleString()}
                       </TableCell>
                       <TableCell className="p-2 font-mono font-semibold">
-                        {option.open_interest.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="p-2 font-mono font-semibold">
-                        {(option.implied_volatility * 100).toFixed(1) + "%"}
+                        {(option?.implied_volatility * 100).toFixed(1) + "%"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -293,8 +323,7 @@ const OptionsChainTable = (props: any) => {
                   <TableHeader>
                     <TableRow className="border-b bg-muted/30">
                       <TableHead className="text-left p-2">Strike</TableHead>
-                      <TableHead className="text-left p-2">Bid</TableHead>
-                      <TableHead className="text-left p-2">Ask</TableHead>
+                      <TableHead className="text-left p-2">Last</TableHead>
                       <TableHead className="text-left p-2">Volume</TableHead>
                       <TableHead className="text-left p-2">OI</TableHead>
                       <TableHead className="text-left p-2">IV</TableHead>
@@ -313,22 +342,19 @@ const OptionsChainTable = (props: any) => {
                     }`}
                       >
                         <TableCell className="p-2 font-mono font-semibold">
-                          ${option.details.strike_price}
+                          ${option?.details?.strike_price}
                         </TableCell>
                         <TableCell className="p-2 font-mono">
-                          ${option.day.low.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="p-2 font-mono">
-                          ${option.day.low.toFixed(2)}
+                          ${option?.day?.low?.toFixed(2)}
                         </TableCell>
                         <TableCell className="p-2 font-mono text-sm">
-                          {option.day.volume.toLocaleString()}
+                          {option?.day?.volume?.toLocaleString()}
                         </TableCell>
                         <TableCell className="p-2 font-mono text-sm">
-                          {option.open_interest.toLocaleString()}
+                          {option?.open_interest?.toLocaleString()}
                         </TableCell>
                         <TableCell className="p-2 font-mono text-sm">
-                          {(option.implied_volatility * 100).toFixed(1) + "%"}
+                          {(option?.implied_volatility * 100).toFixed(1) + "%"}
                         </TableCell>
                       </TableRow>
                     ))}

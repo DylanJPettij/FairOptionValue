@@ -1,6 +1,7 @@
 import { restClient } from "@polygon.io/client-js";
 import axios from "axios";
 import type { Option } from "../Models/Option";
+
 const apiKey = "rdgLSNEX93x_QBCIcfiA33KTQmPdomvL";
 const rest = restClient(apiKey, "https://api.polygon.io");
 
@@ -39,17 +40,13 @@ export const getOptionLastPrice = async (
     );
     const option = {} as Option;
     const items = response.data; // Assuming response.data is an array
-    items.forEach((item: Option) => {
-      option.details = item.details;
-      option.day = item.day;
-      option.greeks = item.greeks;
-      option.implied_volatility = item.implied_volatility;
-      option.open_interest = item.open_interest;
-      option.underlying_asset = item.underlying_asset;
-    });
-    console.log(option);
-    return option;
-
+    option.day = response.data.results.day;
+    option.details = response.data.results.details;
+    option.greeks = response.data.results.greeks;
+    option.implied_volatility = response.data.results.implied_volatility;
+    option.open_interest = response.data.results.open_interest;
+    option.underlying_asset = response.data.results.underlying_asset;
+    console.log(option.day.low);
     return response;
   } catch (e) {
     console.error("An error happened:", e);

@@ -8,10 +8,10 @@ async function getOptions(
   currentPrice: number,
   expirationDate: string
 ): Promise<Option[]> {
-  const callsAboveUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.gte=${currentPrice}&expiration_date.lte=${expirationDate}&contract_type=call&order=asc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
-  const callsBelowUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.lte=${currentPrice}&expiration_date.lte=${expirationDate}&contract_type=call&order=desc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
-  const putsAboveUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.gte=${currentPrice}&expiration_date.lte=${expirationDate}&contract_type=put&order=asc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
-  const putsBelowUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.lte=${currentPrice}&expiration_date.lte=${expirationDate}&contract_type=put&order=desc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
+  const callsAboveUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.gte=${currentPrice}&expiration_date=${expirationDate}&contract_type=call&order=asc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
+  const callsBelowUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.lte=${currentPrice}&expiration_date=${expirationDate}&contract_type=call&order=desc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
+  const putsAboveUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.gte=${currentPrice}&expiration_date=${expirationDate}&contract_type=put&order=asc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
+  const putsBelowUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.lte=${currentPrice}&expiration_date=${expirationDate}&contract_type=put&order=desc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
 
   try {
     const [callsAbove, callsBelow, putsAbove, putsBelow] = await Promise.all([
@@ -33,6 +33,4 @@ async function getOptions(
   }
 }
 
-// Example usage
-// getOptions('NVDA', 180, '2025-10-17').then(options => console.log(options));
 export default getOptions;

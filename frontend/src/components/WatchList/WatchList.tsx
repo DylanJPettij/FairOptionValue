@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "../ui/table";
 import { Input } from "../ui/input";
-import OptionsChainTable from "../OptionsChain/OptionsChainTable";
+import OptionsChainTable from "../OptionsChain/OptionsChainTable.1";
 import { Button } from "../ui/button";
 import { useState } from "react";
 const WatchList = () => {
