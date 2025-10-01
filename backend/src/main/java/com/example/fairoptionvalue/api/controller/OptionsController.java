@@ -2,22 +2,17 @@ package com.example.fairoptionvalue.api.controller;
 
 import com.example.fairoptionvalue.enums.OptionType;
 import com.example.fairoptionvalue.enums.TotalOptionType;
-import com.example.fairoptionvalue.models.HistoricalDataRequest;
-import com.example.fairoptionvalue.models.VolStats;
+import com.example.fairoptionvalue.models.*;
 import com.example.fairoptionvalue.service.OptionsService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
-import com.example.fairoptionvalue.models.BlackScholes;
-
-import com.example.fairoptionvalue.models.StockResponse;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.Optional;
 
+
 @RestController
+@CrossOrigin(origins = "http://localhost:5173")
 public class OptionsController {
 
     private OptionsService optionsService;
@@ -27,23 +22,8 @@ public class OptionsController {
         this.optionsService = optionsService;
     }
 
-//    @PostMapping("/options/fv")
-//    public double PostFairOptionValue(@RequestBody HistoricalDataRequest historicalDataRequest, String option) {
-//
-//        OptionsService OS = new OptionsService();
-//
-//        //Solve for the Standard Deviation of returns
-//        VolStats volStats = OS.GetVolatility(historicalDataRequest.getStockTicker());
-//
-//        //get the current risk-free rate
-//        double rfr = OS.GetCurrentRates();
-//
-//        StockResponse historicalData = OS.GetHistoricalStockData(historicalDataRequest);
-//
-//        return 0;
-//    }
 
-
+    //this endpoint was just for testing
     @GetMapping("/options/black")
     public double CalcBlackScholes() {
         OptionsService OS = new OptionsService();
@@ -53,6 +33,8 @@ public class OptionsController {
         //double value2 = OS.BlackScholesCalculation(OptionType.PUT, 235.84, 235, .0405, 4, .2586);
         return 0;
     }
+
+    //this endpoint was just for testing
     @GetMapping("/options/binomial")
     public double CalcBinomial() {
         OptionsService OS = new OptionsService();
@@ -60,8 +42,9 @@ public class OptionsController {
 
         totalOptionType.setOptionType(OptionType.PUT);
         totalOptionType.setMarketplace(TotalOptionType.Market.European);
-
-        double binomCalc = OS.CCRBinomial(50,52,.05,.02,0.50,0.30,3,totalOptionType);
+        //verified the math is functioning correctly
+        //This data will actually be pulled from a selected option instead of prompting the user for this information.
+        double binomCalc = OS.CCRBinomial(50, 52, .05, .02, 0.50, 0.30, 3, totalOptionType);
 
         return 0;
     }
@@ -80,13 +63,25 @@ public class OptionsController {
         }
     }
 
-    @GetMapping("options/fair")
-    public Optional<ArrayList<Double>> CalcFair() {
+    @PostMapping("options/fair")
+    public Optional<BinomialBlackScholesReturn> CalcFair(@RequestBody FairValueRequest fairValueRequest) {
         OptionsService OS = new OptionsService();
         TotalOptionType totalOptionType = new TotalOptionType();
-        totalOptionType.setOptionType(OptionType.PUT);
+
+        FairValueRequest fv = fairValueRequest;
+
         totalOptionType.setMarketplace(TotalOptionType.Market.American);
-       ArrayList<Double> fairValues = OS.GetFairValue(237.18,237.50,.04086,0,2,.2642,1000,totalOptionType);
-       return Optional.ofNullable(fairValues);
+        if (fv.getOptionType().equals("CALL")) {
+            System.out.println("CALL");
+            totalOptionType.setOptionType(OptionType.CALL);
+        } else {
+            System.out.println("this is triggering");
+            totalOptionType.setOptionType(OptionType.PUT);
+        }
+
+
+        BinomialBlackScholesReturn fairValues = OS.GetFairValue(fv.getStockPrice(), fv.getStrikePrice(), fv.getRfr(),
+                fv.getContDividendYield(), fv.getTimeToExpiry(), fv.getVolatility(), fv.getSteps(), totalOptionType);
+        return Optional.ofNullable(fairValues);
     }
 }

@@ -1,3 +1,5 @@
+import type { OptionWSResponse } from "./OptionWSResponse";
+
 interface Day {
   change: number;
   change_percent: number;
@@ -34,6 +36,7 @@ export interface Option {
   implied_volatility: number;
   open_interest: number;
   underlying_asset: UnderlyingAsset;
+  WSDetails?: OptionWSResponse;
 }
 export interface OptionsResponse {
   results: Option[];

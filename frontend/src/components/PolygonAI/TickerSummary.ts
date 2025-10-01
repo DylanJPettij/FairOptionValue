@@ -1,8 +1,6 @@
 import { restClient } from "@polygon.io/client-js";
-import axios from "axios";
-import type { Option } from "../Models/Option";
 
-const apiKey = "rdgLSNEX93x_QBCIcfiA33KTQmPdomvL";
+const apiKey = import.meta.env.VITE_API_KEY;
 const rest = restClient(apiKey, "https://api.polygon.io");
 
 export const getStocksOpen = async (stockTicker: string) => {
@@ -17,7 +15,7 @@ export const getStocksOpen = async (stockTicker: string) => {
     );
     return response.close;
   } catch (e) {
-    console.error("An error happened:", e);
+    // console.error("An error happened:", e);
   }
 };
 
@@ -26,29 +24,6 @@ export const getCurrentPrice = async (stockTicker: string) => {
     const response = await rest.getStocksSnapshotTicker(stockTicker);
     return response.ticker?.min?.c;
   } catch (e) {
-    console.error("An error happened:", e);
-  }
-};
-
-export const getOptionLastPrice = async (
-  stockTicker: string,
-  optionTicker: string
-) => {
-  try {
-    const response = await axios.get(
-      `https://api.polygon.io/v3/snapshot/options/MARA/O:MARA251010P00015000?apiKey=rdgLSNEX93x_QBCIcfiA33KTQmPdomvL`
-    );
-    const option = {} as Option;
-    const items = response.data; // Assuming response.data is an array
-    option.day = response.data.results.day;
-    option.details = response.data.results.details;
-    option.greeks = response.data.results.greeks;
-    option.implied_volatility = response.data.results.implied_volatility;
-    option.open_interest = response.data.results.open_interest;
-    option.underlying_asset = response.data.results.underlying_asset;
-    console.log(option.day.low);
-    return response;
-  } catch (e) {
-    console.error("An error happened:", e);
+    // console.error("An error happened:", e);
   }
 };

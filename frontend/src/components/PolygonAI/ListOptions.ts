@@ -1,13 +1,13 @@
 import axios from "axios";
 import { type Option } from "../Models/Option";
 
-const API_KEY = "rdgLSNEX93x_QBCIcfiA33KTQmPdomvL"; // Replace with your actual API key
+const API_KEY = import.meta.env.VITE_API_KEY;
 
-async function getOptions(
+const getOptions = async (
   stockSymbol: string,
   currentPrice: number,
   expirationDate: string
-): Promise<Option[]> {
+): Promise<Option[]> => {
   const callsAboveUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.gte=${currentPrice}&expiration_date=${expirationDate}&contract_type=call&order=asc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
   const callsBelowUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.lte=${currentPrice}&expiration_date=${expirationDate}&contract_type=call&order=desc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
   const putsAboveUrl = `https://api.polygon.io/v3/snapshot/options/${stockSymbol}?strike_price.gte=${currentPrice}&expiration_date=${expirationDate}&contract_type=put&order=asc&limit=5&sort=strike_price&apiKey=${API_KEY}`;
@@ -31,6 +31,6 @@ async function getOptions(
     console.error("Error fetching options:", error);
     throw error;
   }
-}
+};
 
 export default getOptions;

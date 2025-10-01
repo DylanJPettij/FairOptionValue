@@ -11,7 +11,3 @@ export const TextColorClass = (value: number) => {
   }
   return textColor;
 };
-
-export const HeaderSettings = "font-bold";
-
-export const CellSettings = "font-medium text-gray-900 p-4";

@@ -1,12 +1,8 @@
 import { websocketClient } from "@polygon.io/client-js";
-import type { StockPricingInfo } from "../Models/StockPricingInfo";
-
+const apiKey = import.meta.env.VITE_API_KEY;
 export const GetStockData = () => {
   // create a websocket client using the polygon client-js library
-  const ws = websocketClient(
-    "rdgLSNEX93x_QBCIcfiA33KTQmPdomvL",
-    "wss://delayed.polygon.io"
-  ).stocks();
+  const ws = websocketClient(apiKey, "wss://delayed.polygon.io").stocks();
 
   // register a handler to log errors
   ws.onerror = (err: String) => console.log("Failed to connect", err);
@@ -42,8 +38,10 @@ export const GetStockData = () => {
         ) {
           console.log("Message received:", parsedMessage[0]);
         }
-        if (parsedMessage[0].c !== undefined) {
-          SetStockData([parsedMessage[0].c]);
+        if (parsedMessage[0].c === undefined) {
+          return;
+        } else {
+          SetStockData(parsedMessage[0].c);
         }
       };
     },

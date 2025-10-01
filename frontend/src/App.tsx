@@ -1,4 +1,4 @@
-import OptionsChainTable from "./components/OptionsChain/OptionsChainTable";
+import { Hero } from "./components/OptionsChain/Hero";
 import { useEffect } from "react";
 import { OptionDataWS } from "./components/PolygonAI/OptionDataWS";
 import { useRef } from "react";
@@ -20,13 +20,7 @@ const App = () => {
 
   return (
     <>
-      <div className="flex gap-5">
-        {/* <WatchList /> */}
-        <OptionsChainTable
-          optionRef={optionRef.current}
-          stockRef={stockRef.current}
-        />
-      </div>
+      <Hero optionRef={optionRef.current} stockRef={stockRef.current} />
     </>
   );
 };

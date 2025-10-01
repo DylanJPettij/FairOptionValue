@@ -1,33 +1,24 @@
 import { websocketClient } from "@polygon.io/client-js";
+import type { Option } from "../Models/Option";
+import type { OptionWSResponse } from "../Models/OptionWSResponse";
+const apiKey = import.meta.env.VITE_API_KEY;
 
-//create connect method
-
-//
 export const OptionDataWS = () => {
-  // create a websocket client using the polygon client-js library
-  const ws = websocketClient(
-    "rdgLSNEX93x_QBCIcfiA33KTQmPdomvL",
-    "wss://delayed.polygon.io"
-  ).options();
+  const ws = websocketClient(apiKey, "wss://delayed.polygon.io").options();
 
-  // register a handler to log errors
   ws.onerror = (err: string) => console.log("Failed to connect", err);
 
-  // register a handler to log info if websocket closes
   ws.onclose = (code: string, reason: string) =>
     console.log("Connection closed", code, reason);
 
-  // register a handler when messages are received
   ws.onmessage = (msg: any) => {
-    // parse the data from the message
     const parsedMessage = JSON.parse(msg.data);
 
-    // wait until the message saying authentication was successful, then subscribe to a channel
     if (
       parsedMessage[0].ev === "status" &&
       parsedMessage[0].status === "auth_success"
-    )
-      console.log("Message received:", parsedMessage[0]);
+    ) {
+    }
   };
   return {
     send: (message: string) => {
@@ -38,8 +29,48 @@ export const OptionDataWS = () => {
         console.error("WebSocket is not open. Ready state: " + ws.readyState);
       }
     },
+    getOptionsData: (SetOptionsChain: any, OptionsChain: Option[]) => {
+      ws.onmessage = (msg: any) => {
+        const parsedMessage = JSON.parse(msg.data);
+
+        if (parsedMessage[0].ev === "A") {
+          const optionData: OptionWSResponse = parsedMessage[0];
+
+          const optionIndex = OptionsChain.findIndex(
+            (option) => option.details.ticker === optionData.sym
+          );
+
+          if (optionIndex !== -1) {
+            const newOptionsChain = [...OptionsChain];
+
+            newOptionsChain[optionIndex] = {
+              ...newOptionsChain[optionIndex],
+              day: {
+                low: optionData.vw,
+                high: optionData.h,
+                change: (optionData.c - optionData.op) / optionData.c,
+                change_percent: (optionData.c - optionData.op) / optionData.c,
+                close: optionData.c,
+                last_updated: optionData.s,
+                open: optionData.op,
+                previous_close: optionData.op,
+                volume: optionData.av,
+                vwap: optionData.v,
+              },
+              WSDetails: optionData,
+            };
+
+            SetOptionsChain(newOptionsChain);
+          }
+        }
+      };
+    },
     close: () => {
       ws.close();
+    },
+    unsubscribe: (tickers: string) => {
+      console.log("Unsubscribing from tickers:", tickers);
+      ws.send(JSON.stringify({ action: "unsubscribe", params: `${tickers}` }));
     },
     //If I need another method to interact add that here
   };
